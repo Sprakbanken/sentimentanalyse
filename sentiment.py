@@ -60,7 +60,6 @@ def coll_sentiment(coll, word="barnevern", return_score_only=False):
 def sentiment_by_place(cities=["Kristiansand", "Stavanger"], from_year=1999, to_year=2010):
 
 
-
     for city in cities:
         lst = []
         for year in range(from_year, to_year):
