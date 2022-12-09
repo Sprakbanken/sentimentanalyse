@@ -47,6 +47,8 @@ def timestamp_generator(from_year, to_year):
         yield date
 
 
+def read_spreadsheet(file_path):
+    return pd.read_excel(file_path) if file_path.endswith(".xlsx") else pd.read_csv(file_path)
 
 
 def coll_sentiment(coll, word="barnevern", return_score_only=False):
