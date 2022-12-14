@@ -225,3 +225,8 @@ def count_and_score_target_words(corpus: dh.Corpus, words:str, before: int = 10,
     df = corpus.frame.merge(word_freq, how="inner", left_on="urn", right_on="urn")
     df = strip_empty_cols(df)
     return df
+
+
+def score_sentiment(*args, **kwargs):
+    """Compute sentiment score on the input data."""
+    return count_and_score_target_words(*args, **kwargs)
