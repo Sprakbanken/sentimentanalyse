@@ -61,16 +61,6 @@ def make_list(value) -> list:
         return value
 
 
-def timestamp_generator(from_year: int, to_year: int) -> Generator:
-    """Generate a timestamp per day in the period ``from_year``-``to_year``."""
-    # range of timestamps
-    timestamp_range = pd.date_range(start=f"{from_year}-01-01", end=f"{to_year}-12-31")
-
-    for i in timestamp_range:
-        date = "".join(str(i).split()[0].split("-"))
-        yield date
-
-
 def strip_empty_cols(df: pd.DataFrame):
     """Remove columns without values from a dataframe."""
     return df.dropna(axis=1, how="all").fillna("")
@@ -82,34 +72,11 @@ def group_index_terms(df: pd.DataFrame) -> pd.DataFrame:
         df = df.frame
     df = df.loc[df.index.str.isalpha()]
     df.index = df.index.str.lower()
-    df = df.groupby(df.index).sum()
+    df = df.groupby(df.index)["counts"].sum().to_frame("counts")
     return df
 
 
-def unpivot(frame):
-    """Reshape a dataframe with multiple indexes.
-
-    Util function copied from Pandas docs:
-    https://pandas.pydata.org/pandas-docs/stable/user_guide/reshaping.html
-    """
-    N, K = frame.shape
-    data = {
-        "count": frame.to_numpy().ravel("F"),
-        "urn": np.asarray(frame.columns).repeat(N),
-        "word": np.tile(np.asarray(frame.index), K),
-    }
-    return pd.DataFrame(data, columns=["word", "urn", "count"])
-
-
 # Sentiment scoring functions: Number crunching
-
-def count_terms(corpus: dh.Corpus, search_terms: str):
-    words = make_list(search_terms)
-    count_matrix = corpus.count(words).frame
-    flattened = unpivot(count_matrix)
-    non_null_counts = flattened.loc[flattened["count"] != 0.0]
-    return non_null_counts.reset_index(drop=True)
-
 
 def count_terms_in_doc(urns: List[str], words: Union[list, str]):
     """
@@ -142,6 +109,7 @@ def count_matching_tokens(coll: pd.DataFrame, terms: pd.Series) -> pd.DataFrame:
     return target_terms
 
 
+# Unnecessary function
 def coll_sentiment(coll, word="barnevern", return_score_only=False):
     """Compute a sentiment score of positive and negative terms in `coll`.
 
@@ -183,6 +151,7 @@ def coll_sentiment(coll, word="barnevern", return_score_only=False):
     return pd.concat([positive_counts, negative_counts, neutral_counts])
 
 
+# Unnecessary function
 def sentiment_by_place(keyword:str ="barnevern", cities=["Kristiansand", "Stavanger"], from_year=1999, to_year=2010):
 
     cities = make_list(cities)
@@ -227,6 +196,49 @@ def count_and_score_target_words(corpus: dh.Corpus, words:str, before: int = 10,
     return df
 
 
-def score_sentiment(*args, **kwargs):
+def compute_sentiment_analysis(*args, **kwargs):
     """Compute sentiment score on the input data."""
     return count_and_score_target_words(*args, **kwargs)
+
+
+
+### DUMPING GROUND
+
+
+# Unnecessary function
+def unpivot(frame):
+    """Reshape a dataframe with multiple indexes.
+
+    Util function copied from Pandas docs:
+    https://pandas.pydata.org/pandas-docs/stable/user_guide/reshaping.html
+
+    .. note:: unnecessary
+    """
+    N, K = frame.shape
+    data = {
+        "count": frame.to_numpy().ravel("F"),
+        "urn": np.asarray(frame.columns).repeat(N),
+        "word": np.tile(np.asarray(frame.index), K),
+    }
+    return pd.DataFrame(data, columns=["word", "urn", "count"])
+
+
+# Unnecessary function
+def count_terms(corpus: dh.Corpus, search_terms: str):
+    """wrapper to undo the pivot in the get_document_frequencies function."""
+    words = make_list(search_terms)
+    count_matrix = corpus.count(words).frame
+    flattened = unpivot(count_matrix)
+    non_null_counts = flattened.loc[flattened["count"] != 0.0]
+    return non_null_counts.reset_index(drop=True)
+
+
+# Unnecessary function
+def timestamp_generator(from_year: int, to_year: int) -> Generator:
+    """Generate a timestamp per day in the period ``from_year``-``to_year``."""
+    # range of timestamps
+    timestamp_range = pd.date_range(start=f"{from_year}-01-01", end=f"{to_year}-12-31")
+
+    for i in timestamp_range:
+        date = "".join(str(i).split()[0].split("-"))
+        yield date
