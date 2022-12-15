@@ -8,7 +8,8 @@ import pandas as pd
 import numpy as np
 
 import dhlab as dh
-from dhlab.api.dhlab_api import urn_collocation
+from dhlab.nbtokenizer import tokenize
+from dhlab.api.dhlab_api import urn_collocation, concordance
 from dhlab.constants import BASE_URL
 
 
@@ -70,7 +71,7 @@ def count_tokens(text):
     text = strip_bold_annotation(text)
     tokens = tokenize(text)
     newcoll = Counter([tok.lower() for tok in tokens if not tok=="..."])
-    return pd.DataFrame({"token": newcoll.keys(), "counts": newcoll.values()})
+    return pd.Series(newcoll.values(), index=newcoll.keys(), name="counts")
 
 
 def strip_empty_cols(df: pd.DataFrame):
@@ -185,7 +186,7 @@ def sentiment_by_place(keyword:str ="barnevern", cities=["Kristiansand", "Stavan
 
 
 def score_sentiment(text, positive, negative):
-    """Calculate a sentiment score for the contexts of ``word`` in a given publication (``URN``)."""
+    """Calculate a sentiment score for the ``text`` input."""
     context = count_tokens(text)
     sent_counts = [count_matching_tokens(context, sent_terms).counts.sum()
         if not context.empty else 0
@@ -194,18 +195,22 @@ def score_sentiment(text, positive, negative):
     return sent_counts
 
 
-def count_and_score_target_words(corpus: dh.Corpus, words:str):
-    """Add word frequency and sentiment score for each word in ``words`` to the given ``corpus``."""
-    words=make_list(words)
+def count_and_score_target_words(corpus: dh.Corpus, word:str):
+    """Add word frequency and sentiment score for ``word`` in the given ``corpus``."""
     urnlist = corpus.corpus.urn.to_list()
     limit = 60*len(urnlist)
+
     conc = concordance(urnlist, word, window=200, limit=limit)
-    word_freq=count_terms_in_doc(urnlist, words)
+
+    word_freq=count_terms_in_doc(urnlist, [word])
+    word_freq = word_freq.merge(conc, how="inner", left_on="urn", right_on="urn").drop(columns=["docid"])
 
     pos, neg = load_norsentlex()
-    word_freq[["positive", "negative"]] = conc.apply(lambda x: score_sentiment(x.conc, pos, neg), axis=1, result_type="expand")
+
+    word_freq[["positive", "negative"]] = word_freq.apply(lambda x: score_sentiment(x.conc, pos, neg), axis=1, result_type="expand")
     word_freq["sentimentscore"] = word_freq["positive"]-word_freq["negative"]
-    df = corpus.frame.merge(word_freq, how="inner", left_on="urn", right_on="urn")
+
+    df = corpus.frame.merge(word_freq.drop(columns="conc"), how="inner", left_on="urn", right_on="urn")
     df = strip_empty_cols(df)
     return df
 
@@ -213,7 +218,6 @@ def count_and_score_target_words(corpus: dh.Corpus, words:str):
 def compute_sentiment_analysis(*args, **kwargs):
     """Compute sentiment score on the input data."""
     return count_and_score_target_words(*args, **kwargs)
-
 
 ### DUMPING GROUND
 
@@ -255,3 +259,26 @@ def timestamp_generator(from_year: int, to_year: int) -> Generator:
     for i in timestamp_range:
         date = "".join(str(i).split()[0].split("-"))
         yield date
+
+
+def get_context_bow(urn, word):
+
+    freq_col="counts"
+    token_col = "token"
+    par_idx_col = "paragraph"
+
+    # Get a dataframe with all paragraphs in a URN and their word counts
+    chunks  = get_chunks_para(urn)
+    total = [{par_idx_col:i, token_col: token, freq_col: count} for i, para in enumerate(chunks) for token, count in para.items()]
+    df = pd.DataFrame(total)
+
+    # Filter dataframe on the paragraphs that contain the search word
+    df["lowercase"] = df[token_col].str.lower()
+    matching_paragraphs = df[par_idx_col][df["lowercase"].str.match(word)]
+    cdf = df[df.paragraph.isin(matching_paragraphs)]
+    context = cdf[freq_col]
+    context.index = cdf[token_col]
+    context = group_index_terms(context)
+    return context
+
+
