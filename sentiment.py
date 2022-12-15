@@ -2,6 +2,7 @@ import requests
 import logging
 from pathlib import Path
 from typing import Generator, List, Union
+from collections import Counter
 
 import pandas as pd
 import numpy as np
@@ -61,6 +62,17 @@ def make_list(value) -> list:
         return value
 
 
+def strip_bold_annotation(text):
+    return text.replace("<b>", "").replace("</b>", "")
+
+# Functions to alter?
+def count_tokens(text):
+    text = strip_bold_annotation(text)
+    tokens = tokenize(text)
+    newcoll = Counter([tok.lower() for tok in tokens if not tok=="..."])
+    return pd.DataFrame({"token": newcoll.keys(), "counts": newcoll.values()})
+
+
 def strip_empty_cols(df: pd.DataFrame):
     """Remove columns without values from a dataframe."""
     return df.dropna(axis=1, how="all").fillna("")
@@ -72,7 +84,7 @@ def group_index_terms(df: pd.DataFrame) -> pd.DataFrame:
         df = df.frame
     df = df.loc[df.index.str.isalpha()]
     df.index = df.index.str.lower()
-    df = df.groupby(df.index)["counts"].sum().to_frame("counts")
+    df = df.groupby(df.index).sum().to_frame("counts")
     return df
 
 
@@ -103,9 +115,9 @@ def count_terms_in_doc(urns: List[str], words: Union[list, str]):
     return df
 
 
-def count_matching_tokens(coll: pd.DataFrame, terms: pd.Series) -> pd.DataFrame:
-    """Combine collocation counts with a series of terms."""
-    target_terms = terms.join(coll, how="inner", on="terms")
+def count_matching_tokens(token_counts: pd.DataFrame, terms: pd.Series) -> pd.DataFrame:
+    """Combine word counts with a series of terms."""
+    target_terms = terms.join(token_counts, how="inner", on="terms")
     return target_terms
 
 
@@ -172,24 +184,26 @@ def sentiment_by_place(keyword:str ="barnevern", cities=["Kristiansand", "Stavan
         yield pd.concat(lst)
 
 
-def score_sentiment(urn, word, before, after, positive, negative):
+def score_sentiment(text, positive, negative):
     """Calculate a sentiment score for the contexts of ``word`` in a given publication (``URN``)."""
-    coll = urn_collocation(urns=[urn], word=word, before=before, after=after)
-    coll = group_index_terms(coll)
-    sent_counts = [count_matching_tokens(coll, sent_terms).counts.sum()
-        if not coll.empty else 0
+    context = count_tokens(text)
+    sent_counts = [count_matching_tokens(context, sent_terms).counts.sum()
+        if not context.empty else 0
         for sent_terms in (positive, negative)
     ]
     return sent_counts
 
 
-def count_and_score_target_words(corpus: dh.Corpus, words:str, before: int = 10, after: int = 10):
+def count_and_score_target_words(corpus: dh.Corpus, words:str):
     """Add word frequency and sentiment score for each word in ``words`` to the given ``corpus``."""
     words=make_list(words)
-    word_freq=count_terms_in_doc(corpus.corpus.urn.to_list(), words)
-    pos, neg = load_norsentlex()
+    urnlist = corpus.corpus.urn.to_list()
+    limit = 60*len(urnlist)
+    conc = concordance(urnlist, word, window=200, limit=limit)
+    word_freq=count_terms_in_doc(urnlist, words)
 
-    word_freq[["positive", "negative"]] = word_freq.apply(lambda x: score_sentiment(x.urn, x.word, before, after, pos, neg), axis=1, result_type="expand")
+    pos, neg = load_norsentlex()
+    word_freq[["positive", "negative"]] = conc.apply(lambda x: score_sentiment(x.conc, pos, neg), axis=1, result_type="expand")
     word_freq["sentimentscore"] = word_freq["positive"]-word_freq["negative"]
     df = corpus.frame.merge(word_freq, how="inner", left_on="urn", right_on="urn")
     df = strip_empty_cols(df)
@@ -199,7 +213,6 @@ def count_and_score_target_words(corpus: dh.Corpus, words:str, before: int = 10,
 def compute_sentiment_analysis(*args, **kwargs):
     """Compute sentiment score on the input data."""
     return count_and_score_target_words(*args, **kwargs)
-
 
 
 ### DUMPING GROUND
