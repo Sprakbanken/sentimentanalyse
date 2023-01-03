@@ -1,26 +1,27 @@
-import requests
 import logging
+import numpy as np
+import pandas as pd
+import requests
+
+from collections import Counter
 from pathlib import Path
 from typing import Generator, List, Union
-from collections import Counter
-
-import pandas as pd
-import numpy as np
 
 import dhlab as dh
-from dhlab.nbtokenizer import tokenize
-from dhlab.api.dhlab_api import urn_collocation, concordance
+from dhlab.api.dhlab_api import concordance, get_chunks_para
 from dhlab.constants import BASE_URL
-
-from dhlab.text.conc_coll import make_link
-
+from dhlab.nbtokenizer import tokenize
 
 
 # File handling util functions
 def load_corpus_from_file(file_path):
     """Load a Corpus object from an excel or csv file."""
     try:
-        corpus = dh.Corpus.from_df(pd.read_excel(file_path)) if file_path.endswith(".xlsx") else dh.Corpus.from_csv(file_path)
+        corpus = (
+            dh.Corpus.from_df(pd.read_excel(file_path))
+            if file_path.endswith(".xlsx")
+            else dh.Corpus.from_csv(file_path)
+        )
     except FileNotFoundError:
         print("The corpus file must be a .csv or .xlsx file: ", file_path)
         corpus = dh.Corpus()
@@ -37,12 +38,15 @@ def load_sentiment_terms(fpath: str = None) -> pd.Series:
 def load_norsentlex() -> List[pd.Series]:
     """Load the sentiment lexicons from ``ǸorsentLex``.
 
-     - Github repo [norsentlex](https://github.com/ltgoslo/norsentlex)
-     - [Lexicon information in neural sentiment analysis:
-     a multi-task learning approach](https://aclanthology.org/W19-6119) (Barnes et al., NoDaLiDa 2019)
-     """
+    - Github repo [norsentlex](https://github.com/ltgoslo/norsentlex)
+    - [Lexicon information in neural sentiment analysis:
+    a multi-task learning approach](https://aclanthology.org/W19-6119) (Barnes et al., NoDaLiDa 2019)
+    """
     fpath = "https://raw.githubusercontent.com/ltgoslo/norsentlex/master/Fullform/Fullform_{sentiment}_lexicon.txt"
-    pos, neg = [load_sentiment_terms(fpath.format(sentiment=sent)) for sent in ("Positive", "Negative")]
+    pos, neg = [
+        load_sentiment_terms(fpath.format(sentiment=sent))
+        for sent in ("Positive", "Negative")
+    ]
     return pos, neg
 
 
@@ -78,15 +82,17 @@ def make_search_link(docid: str, search_term: str = None):
 
 
 def add_urls(df):
-    df["url"] = df.apply(lambda row: make_search_link(row.loc["urn"], row.loc["word"]), axis=1)
-    #urls = df.apply(make_link, axis=1)
+    df["url"] = df.apply(
+        lambda row: make_search_link(row.loc["urn"], row.loc["word"]), axis=1
+    )
+    # urls = df.apply(make_link, axis=1)
     return df
 
 
 def count_tokens(text):
     text = strip_bold_annotation(text)
     tokens = tokenize(text)
-    newcoll = Counter([tok.lower() for tok in tokens if not tok=="..."])
+    newcoll = Counter([tok.lower() for tok in tokens if not tok == "..."])
     return pd.Series(newcoll.values(), index=newcoll.keys(), name="counts")
 
 
@@ -107,15 +113,16 @@ def group_index_terms(df: pd.DataFrame) -> pd.DataFrame:
 
 # Sentiment scoring functions: Number crunching
 
-def count_terms_in_doc(urns: List[str], words: Union[list, str], docid_column="dhlabid"):
+
+def count_terms_in_doc(
+    urns: List[str],
+    words: Union[list, str],
+    docid_column="dhlabid"
+):
     """Similar functionality as ``dhlab.api.dhlab_api.get_document_frequencies``,
     except the dataframe isn't pivoted.
     """
-    params = {
-        "urns":urns,
-        "words":make_list(words),
-        "cutoff": 0
-    }
+    params = {"urns": urns, "words": make_list(words), "cutoff": 0}
     cols = [docid_column, "word", "count", "urncount"]
     try:
         r = requests.post(f"{BASE_URL}/frequencies", json=params)
@@ -128,7 +135,7 @@ def count_terms_in_doc(urns: List[str], words: Union[list, str], docid_column="d
         df = pd.DataFrame(columns=cols)
 
     df = df.drop("urncount", axis=1)
-#    df = pd.pivot_table(df, values="count", index="word", columns="urn").fillna(0)
+    #    df = pd.pivot_table(df, values="count", index="word", columns="urn").fillna(0)
     return df
 
 
@@ -165,12 +172,12 @@ def coll_sentiment(coll, word="barnevern", return_score_only=False):
 
     neutral_counts = coll.join(
         pd.DataFrame(
-            pd.concat(
-                [coll, negative_counts, positive_counts]
-                ).index.drop_duplicates(keep=False)
-            ).set_index(0),
-        how="inner"
-        )
+            pd.concat([coll, negative_counts, positive_counts]).index.drop_duplicates(
+                keep=False
+            )
+        ).set_index(0),
+        how="inner",
+    )
 
     positive_counts["sentiment"] = "pos"
     negative_counts["sentiment"] = "neg"
@@ -179,21 +186,27 @@ def coll_sentiment(coll, word="barnevern", return_score_only=False):
     return pd.concat([positive_counts, negative_counts, neutral_counts])
 
 
-def sentiment_by_place(cities=["Kristiansand", "Stavanger"], from_year=1999, to_year=2010):
+def sentiment_by_place(
+    cities=["Kristiansand", "Stavanger"],
+    from_year=1999,
+    to_year=2010
+):
 
     for city in cities:
         lst = []
         for year in range(from_year, to_year):
-            corpus = dh.Corpus(doctype="digavis", freetext=f"city: {city} year: {year}", limit=1000)
+            corpus = dh.Corpus(
+                doctype="digavis", freetext=f"city: {city} year: {year}", limit=1000
+            )
             pos, neg = coll_sentiment(corpus, "barnevern", return_score_only=True)
 
             lst.append(
                 pd.DataFrame(
-                    [[pos, neg, pos-neg]],
+                    [[pos, neg, pos - neg]],
                     index=[year],
-                    columns=["positive", "negative", "sum"]
-                    )
+                    columns=["positive", "negative", "sum"],
                 )
+            )
 
         yield pd.concat(lst)
 
@@ -201,31 +214,43 @@ def sentiment_by_place(cities=["Kristiansand", "Stavanger"], from_year=1999, to_
 def score_sentiment(text, positive, negative):
     """Calculate a sentiment score for the ``text`` input."""
     context = count_tokens(text)
-    sent_counts = [count_matching_tokens(context, sent_terms).counts.sum()
-        if not context.empty else 0
+    sent_counts = [
+        count_matching_tokens(context, sent_terms).counts.sum()
+        if not context.empty
+        else 0
         for sent_terms in (positive, negative)
     ]
     return sent_counts
 
 
-def count_and_score_target_words(corpus: dh.Corpus, word:str):
+def count_and_score_target_words(corpus: dh.Corpus, word: str):
     """Add word frequency and sentiment score for ``word`` in the given ``corpus``."""
     urnlist = corpus.corpus.urn.to_list()
-    limit = 60*len(urnlist)
+    limit = 60 * len(urnlist)
     docid_column = "dhlabid"
 
     conc = concordance(urnlist, word, window=200, limit=limit)
-    conc = conc.rename(columns={"docid":docid_column}).drop("urn", axis=1)  #FIXME: remove once concordance also returns dhlabid by default
+    # FIXME: remove once concordance also returns dhlabid by default
+    conc = conc.rename(columns={"docid": docid_column}).drop("urn", axis=1)
 
     word_freq = count_terms_in_doc(urnlist, [word])
-    word_freq = word_freq.merge(conc, how="inner", left_on=docid_column, right_on=docid_column)
+    word_freq = word_freq.merge(
+        conc, how="inner", left_on=docid_column, right_on=docid_column
+    )
 
     pos, neg = load_norsentlex()
 
-    word_freq[["positive", "negative"]] = word_freq.apply(lambda x: score_sentiment(x.conc, pos, neg), axis=1, result_type="expand")
-    word_freq["sentimentscore"] = word_freq["positive"]-word_freq["negative"]
+    word_freq[["positive", "negative"]] = word_freq.apply(
+        lambda x: score_sentiment(x.conc, pos, neg), axis=1, result_type="expand"
+    )
+    word_freq["sentimentscore"] = word_freq["positive"] - word_freq["negative"]
 
-    df = corpus.frame.merge(word_freq.drop(columns="conc"), how="inner", left_on=docid_column, right_on=docid_column)
+    df = corpus.frame.merge(
+        word_freq.drop(columns="conc"),
+        how="inner",
+        left_on=docid_column,
+        right_on=docid_column,
+    )
     df = strip_empty_cols(df)
     return df
 
@@ -235,7 +260,7 @@ def compute_sentiment_analysis(*args, **kwargs):
     return count_and_score_target_words(*args, **kwargs)
 
 
-### DUMPING GROUND
+# DUMPING GROUND
 
 # Unnecessary function
 def unpivot(frame):
@@ -276,13 +301,17 @@ def timestamp_generator(from_year: int, to_year: int) -> Generator:
 
 def get_context_bow(urn, word):
 
-    freq_col="counts"
+    freq_col = "counts"
     token_col = "token"
     par_idx_col = "paragraph"
 
     # Get a dataframe with all paragraphs in a URN and their word counts
-    chunks  = get_chunks_para(urn)
-    total = [{par_idx_col:i, token_col: token, freq_col: count} for i, para in enumerate(chunks) for token, count in para.items()]
+    chunks = get_chunks_para(urn)
+    total = [
+        {par_idx_col: i, token_col: token, freq_col: count}
+        for i, para in enumerate(chunks)
+        for token, count in para.items()
+    ]
     df = pd.DataFrame(total)
 
     # Filter dataframe on the paragraphs that contain the search word
@@ -293,5 +322,3 @@ def get_context_bow(urn, word):
     context.index = cdf[token_col]
     context = group_index_terms(context)
     return context
-
-
