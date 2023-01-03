@@ -70,19 +70,19 @@ def strip_bold_annotation(text):
     return text.replace("<b>", "").replace("</b>", "")
 
 
-
 def make_search_link(docid: str, search_term: str = None):
     """Create a URL to the online library view of the digital object, with the search term"""
 
     link = f"https://www.nb.no/items/{docid}"
     return link if search_term is None else f"{link}?searchText={search_term}"
 
+
 def add_urls(df):
     df["url"] = df.apply(lambda row: make_search_link(row.loc["urn"], row.loc["word"]), axis=1)
     #urls = df.apply(make_link, axis=1)
     return df
 
-# Functions to alter?
+
 def count_tokens(text):
     text = strip_bold_annotation(text)
     tokens = tokenize(text)
@@ -108,8 +108,8 @@ def group_index_terms(df: pd.DataFrame) -> pd.DataFrame:
 # Sentiment scoring functions: Number crunching
 
 def count_terms_in_doc(urns: List[str], words: Union[list, str], docid_column="dhlabid"):
-    """
-    Same functionality as ``dhlab.api.dhlab_api.get_document_frequencies``, except the dataframe isn't pivoted.
+    """Similar functionality as ``dhlab.api.dhlab_api.get_document_frequencies``,
+    except the dataframe isn't pivoted.
     """
     params = {
         "urns":urns,
@@ -138,7 +138,6 @@ def count_matching_tokens(token_counts: pd.DataFrame, terms: pd.Series) -> pd.Da
     return target_terms
 
 
-# Unnecessary function
 def coll_sentiment(coll, word="barnevern", return_score_only=False):
     """Compute a sentiment score of positive and negative terms in `coll`.
 
@@ -180,15 +179,13 @@ def coll_sentiment(coll, word="barnevern", return_score_only=False):
     return pd.concat([positive_counts, negative_counts, neutral_counts])
 
 
-# Unnecessary function
-def sentiment_by_place(keyword:str ="barnevern", cities=["Kristiansand", "Stavanger"], from_year=1999, to_year=2010):
+def sentiment_by_place(cities=["Kristiansand", "Stavanger"], from_year=1999, to_year=2010):
 
-    cities = make_list(cities)
     for city in cities:
         lst = []
         for year in range(from_year, to_year):
             corpus = dh.Corpus(doctype="digavis", freetext=f"city: {city} year: {year}", limit=1000)
-            pos, neg = coll_sentiment(corpus, keyword, return_score_only=True)
+            pos, neg = coll_sentiment(corpus, "barnevern", return_score_only=True)
 
             lst.append(
                 pd.DataFrame(
@@ -246,8 +243,6 @@ def unpivot(frame):
 
     Util function copied from Pandas docs:
     https://pandas.pydata.org/pandas-docs/stable/user_guide/reshaping.html
-
-    .. note:: unnecessary
     """
     N, K = frame.shape
     data = {
