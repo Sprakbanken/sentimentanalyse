@@ -12,6 +12,9 @@ from dhlab.nbtokenizer import tokenize
 from dhlab.api.dhlab_api import urn_collocation, concordance
 from dhlab.constants import BASE_URL
 
+from dhlab.text.conc_coll import make_link
+
+
 
 # File handling util functions
 def load_corpus_from_file(file_path):
@@ -66,6 +69,19 @@ def make_list(value) -> list:
 def strip_bold_annotation(text):
     return text.replace("<b>", "").replace("</b>", "")
 
+
+
+def make_search_link(docid: str, search_term: str = None):
+    """Create a URL to the online library view of the digital object, with the search term"""
+
+    link = f"https://www.nb.no/items/{docid}"
+    return link if search_term is None else f"{link}?searchText={search_term}"
+
+def add_urls(df):
+    df["url"] = df.apply(lambda row: make_search_link(row.loc["urn"], row.loc["word"]), axis=1)
+    #urls = df.apply(make_link, axis=1)
+    return df
+
 # Functions to alter?
 def count_tokens(text):
     text = strip_bold_annotation(text)
@@ -91,7 +107,7 @@ def group_index_terms(df: pd.DataFrame) -> pd.DataFrame:
 
 # Sentiment scoring functions: Number crunching
 
-def count_terms_in_doc(urns: List[str], words: Union[list, str]):
+def count_terms_in_doc(urns: List[str], words: Union[list, str], docid_column="dhlabid"):
     """
     Same functionality as ``dhlab.api.dhlab_api.get_document_frequencies``, except the dataframe isn't pivoted.
     """
@@ -100,7 +116,7 @@ def count_terms_in_doc(urns: List[str], words: Union[list, str]):
         "words":make_list(words),
         "cutoff": 0
     }
-    cols = ["urn", "word", "count", "urncount"]
+    cols = [docid_column, "word", "count", "urncount"]
     try:
         r = requests.post(f"{BASE_URL}/frequencies", json=params)
         r.raise_for_status
@@ -199,18 +215,20 @@ def count_and_score_target_words(corpus: dh.Corpus, word:str):
     """Add word frequency and sentiment score for ``word`` in the given ``corpus``."""
     urnlist = corpus.corpus.urn.to_list()
     limit = 60*len(urnlist)
+    docid_column = "dhlabid"
 
     conc = concordance(urnlist, word, window=200, limit=limit)
+    conc = conc.rename(columns={"docid":docid_column}).drop("urn", axis=1)  #FIXME: remove once concordance also returns dhlabid by default
 
-    word_freq=count_terms_in_doc(urnlist, [word])
-    word_freq = word_freq.merge(conc, how="inner", left_on="urn", right_on="urn").drop(columns=["docid"])
+    word_freq = count_terms_in_doc(urnlist, [word])
+    word_freq = word_freq.merge(conc, how="inner", left_on=docid_column, right_on=docid_column)
 
     pos, neg = load_norsentlex()
 
     word_freq[["positive", "negative"]] = word_freq.apply(lambda x: score_sentiment(x.conc, pos, neg), axis=1, result_type="expand")
     word_freq["sentimentscore"] = word_freq["positive"]-word_freq["negative"]
 
-    df = corpus.frame.merge(word_freq.drop(columns="conc"), how="inner", left_on="urn", right_on="urn")
+    df = corpus.frame.merge(word_freq.drop(columns="conc"), how="inner", left_on=docid_column, right_on=docid_column)
     df = strip_empty_cols(df)
     return df
 
@@ -219,8 +237,8 @@ def compute_sentiment_analysis(*args, **kwargs):
     """Compute sentiment score on the input data."""
     return count_and_score_target_words(*args, **kwargs)
 
-### DUMPING GROUND
 
+### DUMPING GROUND
 
 # Unnecessary function
 def unpivot(frame):
