@@ -1,9 +1,12 @@
 # sentimentanalyse
-Utvikling av sentimentanalyse for DH-laben
+Utvikling av sentimentanalyse for DH-laben.
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Sprakbanken/sentimentanalyse/main?labpath=sentiment_analysis_timeseries.ipynb)
+Prøv koden selv!
 
 ## Sentimentanalyse på aviser med gitte nøkkelord
 
-* fil: notebook [`sentiment_analysis_timeseries.ipynb`](sentiment_analysis_timeseries.ipynb)
+* FIL: jupyter notebook [`sentiment_analysis_timeseries.ipynb`](sentiment_analysis_timeseries.ipynb)
 * INNDATA: nøkkelord `word`
 * PROSESS:
     - Hent aviskorpus fra 2000-2022 der en form av lemmaet til nøkkelordet forekommer.
@@ -12,11 +15,16 @@ Utvikling av sentimentanalyse for DH-laben
     - Plott et grafdiagram med sentimentscore over tid.
     - Legg til nb.no-URLer for hvert dokument i korpuset.
     - Formater filnavn og skriv til CSV-fil
-* [UTDATA](#utdata): CSV-fil `sentimentanalyse_aviskorpus_<FRA ÅR>-<TIL ÅR>_<DAGENS DATO>.csv`, se [eksempel](sentimentanalyse_aviskorpus_2000-2022_2023-01-03.csv).
+* [UTDATA](#utdata): CSV-fil `sentimentanalyse_aviskorpus_<FRA ÅR>-<TIL ÅR>_<DAGENS DATO>.csv`, se [eksempel](sentimentanalyse_aviskorpus_2000-2022_2023-01-03.csv). 
+
+**OBS!** _Hvis du kjører notebooken i Binder, må du selv laste ned CSV-filen etter at den er skrevet:_
+
+![hvordan_laste_ned_utdata_csv_fil](https://user-images.githubusercontent.com/37677043/210516721-61b849a1-256f-4ca4-b268-f96d3adbe787.png)
+
 
 ## Kildekode
 
-* modulen [`sentiment.py`](sentiment.py) inneholder funksjonene som brukes i notebooken. Den innholder også hjelpefunksjoner som kan være nyttige i dhlab-pakken forøvrig.
+* FIL: modulen [`sentiment.py`](sentiment.py) inneholder funksjonene som brukes i notebooken. Den innholder også hjelpefunksjoner som kan være nyttige i dhlab-pakken forøvrig.
 * funksjon `count_and_score_target_words`:
 * INNDATA: korpus (URN-liste) + nøkkelord
 * PROSESS:
@@ -47,8 +55,3 @@ Utvikling av sentimentanalyse for DH-laben
 | negative | antall negative ord i kontekstene |
 | sentimentscore  | differansen positiv score - negativ score |
 | url | lenke til avisen i nettbiblioteket, inkl. søk på nøkkelordet |
-
-
-**FINT Å HA**:
-- [ ] Hent geolokasjon/stedsnavn/landsdel for tittel på hver URN
-- [ ] Lag en streamlit-app som kjører sentimentanalysen
