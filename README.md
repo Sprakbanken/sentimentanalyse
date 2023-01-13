@@ -44,7 +44,7 @@ Prøv koden selv!
 | --- | --- |
 | dhlabid | DH-labens ID-nummer for det digitale tekstobjektet (OCR-scannet tekst) i databasene |
 | urn | Unique Resource Name (digitalt bilde av tekstdokumentet, tilgjengelig i nettbiblioteket) |
-| title |  Avistittel, navn på publikasjon |
+| title |  Avistittel, navn på publikasjon[^1] |
 | city  | Publiseringssted (oftest en by) |
 | timestamp  | datostempel i ISO-format (YYYYMMDD) |
 | year | årstall for publikasjonen |
@@ -55,3 +55,5 @@ Prøv koden selv!
 | negative | antall negative ord i kontekstene |
 | sentimentscore  | differansen positiv score - negativ score |
 | url | lenke til avisen i nettbiblioteket, inkl. søk på nøkkelordet |
+
+[^1]: OBS! små bokstaver, ingen spesialtegn (æøå), ingen mellomrom i hver tittel.
