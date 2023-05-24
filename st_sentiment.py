@@ -1,12 +1,9 @@
-
-import streamlit as st
 import datetime
 from io import BytesIO
 
 import pandas as pd
 import streamlit as st
 import dhlab as dh
-from PIL import Image
 
 from sentiment import compute_sentiment_analysis
 
@@ -18,16 +15,16 @@ def to_excel(df):
     """Make an excel object out of a dataframe as an IO-object"""
     output = BytesIO()
 
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='Sheet1', index=False)
 
     processed_data = output.getvalue()
     return processed_data
 
 @st.cache_data
-def load_data(word, city, from_year, to_year, number_of_docs):
+def load_data(doctype, word, city, from_year, to_year, number_of_docs):
     corpus = dh.Corpus(
-            doctype="digavis",
+            doctype=doctype,
             fulltext=word,
             freetext=f"city: {city}" if city is not None else None,
             from_year=from_year,
@@ -49,7 +46,7 @@ def plot_result(result):
 
 
 ## Page layout
-st.set_page_config(page_title="Sentimentscore", layout="wide", initial_sidebar_state="auto")
+st.set_page_config(page_title="Sentiment", layout="wide", initial_sidebar_state="auto")
 
 ## Headers
 st.markdown("""<style>
@@ -98,7 +95,7 @@ with st.sidebar.form(key='corpus_form'):
     submit_button = st.form_submit_button(label='Hent tekstutvalg')
     if submit_button:
         load_text = st.text('Laster inn korpus...')
-        corpus = load_data(word, city, from_year, to_year, number_of_docs).frame
+        corpus = load_data(doctype, word, city, from_year, to_year, number_of_docs).frame
         load_text.text('Korpuset er lastet inn.')
 
 if st.session_state.corpus_upload is not None:
